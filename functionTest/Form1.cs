@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Media;
 
 namespace functionTest
 {
@@ -17,22 +18,26 @@ namespace functionTest
         string checkMACsPath = "00_SHOWMAC.EXE";
         string checkRS422Path = "01-MySerialTest.exe";
         string checkUSBPath = "03-USBDeview.exe";
-        string checkAudioPath = "04-MV.mp4";
+        string checkAudioPath = "04-MV.wmv";
 
         public FunctionTest()
         {
             InitializeComponent();
-            Initial();
-            
-        }
-
-        private void Initial()
-        {
-            languageSelection.Text = "選擇顯示語言:\r\nSelect Display Language:";
-            testGroupBox.Visible = true;
+            LanguageInitial();
+            axWindowsMediaPlayer1.PlayStateChange += PlayStateChange;
         }
 
         #region 語言及語言切換區塊
+        /// <summary>
+        /// 顯示語言初始化
+        /// </summary>
+        private void LanguageInitial()
+        {
+            languageSelection.Text = "選擇顯示語言:\r\nSelect Display Language:";
+            testGroupBox.Visible = true;
+            isCh = true;
+        }
+
         /// <summary>
         /// 切換語言
         /// </summary>
@@ -55,6 +60,7 @@ namespace functionTest
 
             checkMacsButton.Text = "確認網路位置";
             rs422Button.Text = "確認RS422功能";
+            checkUSBButton.Text = "確認USB功能";
             checkAudioButton.Text = "確認影像及音樂功能";
         }
 
@@ -65,10 +71,56 @@ namespace functionTest
 
             checkMacsButton.Text = "Check MACs IP";
             rs422Button.Text = "Check RS422 Function";
+            checkUSBButton.Text = "Check USB Function";
             checkAudioButton.Text = "Check Audio Function";
+        }
+
+        /// <summary>
+        /// 確認使用者語言更改撥放提示語言
+        /// </summary>
+        /// <param name="button">測試的按鈕</param>
+        private void CheckAudioLanguage(Button button)
+        {
+            if (isCh)
+            {
+                DialogResult result = MessageBox.Show("影像及音樂是否正常?", "影像及音樂確認",
+                    MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+
+                if (result == DialogResult.Yes)
+                {
+                    button.BackColor = Color.Green;
+                    listRichTextBox.Text += "影像及音樂確認" + "= PASS\r\n";
+                }
+                else
+                {
+                    button.BackColor = Color.Red;
+                    listRichTextBox.Text += "影像及音樂確認" + "= NG\r\n";
+                }
+
+            }
+            else
+            {
+                DialogResult result = MessageBox.Show("Are the audio normal?", "Check Audio",
+                    MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+
+                if (result == DialogResult.Yes)
+                {
+                    button.BackColor = Color.Green;
+                    listRichTextBox.Text += "Check Audio" + "= PASS\r\n";
+                }
+                else
+                {
+                    button.BackColor = Color.Red;
+                    listRichTextBox.Text += "Check Audio" + "= NG\r\n";
+                }
+            }
+
+            KeywordChangeColor("PASS", Color.Green);
+            KeywordChangeColor("NG", Color.Red);
         }
         #endregion
 
+        #region 自訂邏輯區
         /// <summary>
         /// 執行外部程式
         /// </summary>
@@ -83,7 +135,8 @@ namespace functionTest
             process.EnableRaisingEvents = true;
             process.Exited += (sender, e) =>
             {
-                DialogResult result = MessageBox.Show(question, testTitle, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                DialogResult result = MessageBox.Show(question, testTitle,
+                    MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
                 if (result == DialogResult.Yes)
                 {
                     button.BackColor = Color.Green;
@@ -135,6 +188,24 @@ namespace functionTest
             }
         }
 
+        /// <summary>
+        /// 偵測撥放時變更動作邏輯
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void PlayStateChange(object sender, AxWMPLib._WMPOCXEvents_PlayStateChangeEvent e)
+        {
+            if ((WMPLib.WMPPlayState)e.newState == WMPLib.WMPPlayState.wmppsMediaEnded ||
+                (WMPLib.WMPPlayState)e.newState == WMPLib.WMPPlayState.wmppsPaused ||
+                (WMPLib.WMPPlayState)e.newState == WMPLib.WMPPlayState.wmppsStopped)
+            {
+                CheckAudioLanguage(checkAudioButton);
+            }
+        }
+
+        #endregion
+
+        #region 按鈕區
         private void chRadioButton_Click(object sender, EventArgs e)
         {
             isCh = true;
@@ -147,7 +218,7 @@ namespace functionTest
             SwitchLanguage();
         }
 
-        private void showMacsButton_Click(object sender, EventArgs e)
+        private void checkMacsButton_Click(object sender, EventArgs e)
         {
             if (isCh)
             {
@@ -159,6 +230,12 @@ namespace functionTest
                 OpenExternalExecutableFile(checkMACsPath, checkMacsButton.Text,
                     "Is the sticker consistent with the MAC of the computer?", checkMacsButton);
             }
+
+            if (checkMacsButton.BackColor == Color.Green)
+            {
+                rs422Button_Click(sender, e);
+            }
+
         }
 
         private void rs422Button_Click(object sender, EventArgs e)
@@ -172,6 +249,10 @@ namespace functionTest
             {
                 OpenExternalExecutableFile(checkRS422Path, rs422Button.Text,
                     "Is the RS422 function normal?", rs422Button);
+            }
+            if (rs422Button.BackColor == Color.Green)
+            {
+                checkUSBButton_Click(sender, e);
             }
         }
 
@@ -187,20 +268,18 @@ namespace functionTest
                 OpenExternalExecutableFile(checkUSBPath,checkUSBButton.Text,
                     "Are the USB functions and speed normal?", checkUSBButton);
             }
+            if (checkUSBButton.BackColor == Color.Green)
+            {
+                checkAudioButton_Click(sender, e);
+            }
         }
 
         private void checkAudioButton_Click(object sender, EventArgs e)
         {
-            if (isCh)
-            {
-                OpenExternalExecutableFile(checkAudioPath, checkAudioButton.Text,
-                    "影像及音樂是否正常?", checkAudioButton);
-            }
-            else
-            {
-                OpenExternalExecutableFile(checkAudioPath, checkAudioButton.Text,
-                    "Are the audio normal?", checkAudioButton);
-            }
+            axWindowsMediaPlayer1.URL = checkAudioPath;
+            axWindowsMediaPlayer1.Ctlcontrols.play();
         }
+
+        #endregion
     }
 }
